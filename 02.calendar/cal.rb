@@ -17,7 +17,7 @@ print "   " * wday #月初めの曜日によってスペースを追加する
 
 (firstday..lastday).each do |date|
     print date.day.to_s.rjust(2)+" " #日付を右揃えにしてスペースを入れる
-    if date.wday == 6 
+    if date.saturday?  
         print "\n"
     end
 end
