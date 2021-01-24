@@ -1,0 +1,13 @@
+CC = "gcc"
+
+task :default => "hello"
+
+# helloというファイルを作成するためにはhello.oが必要
+file "hello" => "hello.o" do
+  sh "#{CC} -o hello hello.o"
+end
+
+# hello.oというオブジェクトファイルをコンパイルするためにはhello.cというファイルが必要
+file "hello.o" => "hello.c" do
+  sh "#{CC} -c hello.c"
+end
