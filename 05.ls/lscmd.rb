@@ -4,36 +4,9 @@
 require 'etc'
 require 'optparse'
 
-def add_space(files)
-  files.push('') while files.count % 3 != 0
-end
+COLUMN_COUNT = 3
 
-# 配列の行列反転
-def invert_matrix(files)
-  files_dual_array = []
-  files.each_slice(files.count / 3) do |file|
-    files_dual_array.push(file)
-  end
-  files_dual_array.transpose.flatten
-end
-
-# lオプション以外の表示
-def show_standard(files)
-  add_space(files)
-  line_break_count = 0
-  invert_matrix(files).each do |file|
-    line_break_count += 1
-    print file.to_s.ljust(20)
-    print "\n" if (line_break_count % 3).zero?
-  end
-end
-
-# ここからlオプション
-def file_type(file)
-  to_one_char(File.stat(file).ftype)
-end
-
-def to_one_char(ftype)
+FILE_TYPE =
   {
     'file' => '-',
     'directory' => 'd',
@@ -43,30 +16,9 @@ def to_one_char(ftype)
     'link' => 'l',
     'socket' => 's',
     'unknown' => 'u'
-  }[ftype]
-end
+  }.freeze
 
-def to_octal(file)
-  File.stat(file).mode.to_s(8)
-end
-
-def owner_rwx(file)
-  to_rwx(to_octal(file)[-3].to_i)
-end
-
-def group_rwx(file)
-  to_rwx(to_octal(file)[-2].to_i)
-end
-
-def other_rwx(file)
-  to_rwx(to_octal(file)[-1].to_i)
-end
-
-def permission(file)
-  "#{owner_rwx(file)}#{group_rwx(file)}#{other_rwx(file)}"
-end
-
-def to_rwx(octal)
+PERMISSION_PATTERN =
   {
     0 => '---',
     1 => '--x',
@@ -76,71 +28,92 @@ def to_rwx(octal)
     5 => 'r-x',
     6 => 'rw-',
     7 => 'rwx'
-  }[octal]
+  }.freeze
+
+def ls_cmd
+  options = ARGV.getopts('a', 'r', 'l')
+  files = show_all(options['a'])
+  sorted_files = options['r'] ? files.reverse : files
+  show_format(sorted_files, options['l'])
 end
 
-def hard_link(file)
-  File.stat(file).nlink
-end
-
-def owner_name(file)
-  Etc.getpwuid(File.stat(file).uid).name
-end
-
-def group_name(file)
-  Etc.getgrgid(File.stat(file).gid).name
-end
-
-def bite_size(file)
-  File.stat(file).size.to_s.rjust(5)
-end
-
-def time_stamp(file)
-  File.stat(file).ctime.strftime('%-m %e %R')
-end
-
-def total_blocks(files)
-  files_blocks = []
-  files.each do |file|
-    files_blocks << File.stat(file).blocks
-  end
-  files_blocks.sum
-end
-
-def show_details(files)
-  puts "total #{total_blocks(files)}"
-  files.each do |file|
-    puts "#{file_type(file)}#{permission(file)}  #{hard_link(file)} #{owner_name(file)}  #{group_name(file)} #{bite_size(file)}  #{time_stamp(file)} #{file}"
-  end
-end
-# ここまでがlオプション
-
-def opts_a?(opts_a)
-  if opts_a == true
-    Dir.entries('.').sort
+def show_all(opts_a)
+  if opts_a
+    Dir.glob('*', File::FNM_DOTMATCH).sort
   else
     Dir.glob('*').sort
   end
 end
 
-def opts_r?(files, opts_r)
-  files.reverse! if opts_r == true
-  files
-end
-
-def opts_l?(files, opts_l)
-  if opts_l == true
+def show_format(files, opts_l)
+  if opts_l
     show_details(files)
   else
     show_standard(files)
   end
 end
 
-def ls_cmd
-  options = ARGV.getopts('a', 'r', 'l')
-  pass_opts_a = opts_a?(options['a'])
-  pass_opts_ar = opts_r?(pass_opts_a, options['r'])
-  opts_l?(pass_opts_ar, options['l'])
+# lオプション以外の表示
+def show_standard(files)
+  invert_matrix(add_space(files)).each do |nested_files|
+    nested_files.each do |file|
+      print file.to_s.ljust(20)
+    end
+    print "\n"
+  end
+end
+
+def add_space(files)
+  copy_files = files.clone
+  copy_files.push('') while copy_files.count % COLUMN_COUNT != 0
+  copy_files
+end
+
+def invert_matrix(copy_files)
+  copy_files.each_slice(copy_files.count / COLUMN_COUNT).to_a.transpose
+end
+
+# ここからlオプション
+def show_details(files)
+  puts "total #{total_blocks(files)}"
+  files.each do |file|
+    stat = File.stat(file)
+    puts "#{file_type(stat)}#{permission(stat)}  #{hard_link(stat)} #{owner_name(stat)}  #{group_name(stat)} #{byte_size(stat)}  #{time_stamp(stat)} #{file}"
+  end
+end
+
+def total_blocks(files)
+  files.sum { |file| File.stat(file).blocks }
+end
+
+def file_type(stat)
+  FILE_TYPE[stat.ftype]
+end
+
+def permission(stat)
+  [-3, -2, -1].map do |index|
+    PERMISSION_PATTERN[stat.mode.to_s(8)[index].to_i]
+  end.join
+end
+
+def hard_link(stat)
+  stat.nlink
+end
+
+def owner_name(stat)
+  Etc.getpwuid(stat.uid).name
+end
+
+def group_name(stat)
+  Etc.getgrgid(stat.gid).name
+end
+
+def byte_size(stat)
+  stat.size.to_s.rjust(5)
+end
+
+def time_stamp(stat)
+  stat.ctime.strftime('%-m %e %R')
 end
 
 ls_cmd
