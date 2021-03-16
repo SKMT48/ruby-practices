@@ -8,67 +8,46 @@ def main
   opts = ARGV.getopts('l')
   if files.empty?
     text = readlines
-    no_files(text, opts)
+    display_format(text, opts)
+    puts "\n"
   else
     with_files(files, opts)
   end
 end
 
-# ファイル指定なし
-def no_files(text, opts)
-  if opts['l']
-    display_aligned(text.size)
-  else
-    display_aligned(text.size, text.to_s.split.size, text.sum { |one_char| one_char.to_s.bytesize })
-  end
-  print "\n"
-end
-
-# ファイル指定有り
+# ファイル指定あり
 def with_files(files, opts)
+  line_count = []
+  word_count = []
+  bytesize = []
   files.each do |file|
-    if opts['l']
-      display_aligned(line_count(file))
-    else
-      display_aligned(line_count(file), word_count(file), byte_size(file))
-    end
-    print " #{file}\n"
+    text = File.read(file).lines
+    line_count << text.size
+    word_count << text.to_s.split.size
+    bytesize << text.sum(&:bytesize)
+    display_format(text, opts)
+    puts " #{file}"
   end
-  if opts['l'] && files.size >= 2
-    display_aligned(total_line_count(files))
-    print " total\n"
-  elsif files.size >= 2
-    display_aligned(total_line_count(files), total_word_count(files), total_byte_size(files))
-    print " total\n"
+  return if files.size == 1
+
+  if opts['l']
+    show_info(line_count.sum)
+  else
+    show_info(line_count.sum, word_count.sum, bytesize.sum)
+  end
+  puts ' total'
+end
+
+def display_format(text, opts)
+  if opts['l']
+    show_info(text.size)
+  else
+    show_info(text.size, text.to_s.split.size, text.sum(&:bytesize))
   end
 end
 
-def display_aligned(*file_infomations)
-  file_infomations.each { |info| print info.to_s.rjust(8) }
-end
-
-def line_count(file)
-  File.read(file).count("\n")
-end
-
-def word_count(file)
-  File.read(file).to_s.scan(/\s+/).count
-end
-
-def byte_size(file)
-  File.stat(file).size
-end
-
-def total_line_count(files)
-  files.sum { |file| line_count(file) }
-end
-
-def total_word_count(files)
-  files.sum { |file| word_count(file) }
-end
-
-def total_byte_size(files)
-  files.sum { |file| byte_size(file) }
+def show_info(*file_info_lists)
+  file_info_lists.each { |list| print list.to_s.rjust(8) }
 end
 
 main
