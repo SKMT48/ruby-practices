@@ -7,35 +7,41 @@ def main
   files = ARGV
   opts = ARGV.getopts('l')
   if files.empty?
-    text_array = readlines
-    show_file_info(text_array.join, opts)
-    puts "\n"
+    text_lines = readlines
+    show_text_count(get_count_table(text_lines.join), opts)
+    puts
   else
     process_files(files, opts)
   end
 end
 
-# ファイル指定が有る場合の処理
+def get_count_table(text)
+  { line_count: text.count("\n"), word_count: text.scan(/\s+/).count, bytesize: text.bytesize }
+end
+
 def process_files(files, opts)
-  file_text_list = []
+  line_counts = []
+  word_counts = []
+  byte_size_list = []
   files.each do |file|
-    file_text = File.read(file)
-    show_file_info(file_text, opts)
+    count_table = get_count_table(File.read(file))
+    show_text_count(count_table, opts)
     puts " #{file}"
-    file_text_list << file_text
+    line_counts << count_table[:line_count]
+    word_counts << count_table[:word_count]
+    byte_size_list << count_table[:bytesize]
   end
   return if files.count == 1
 
-  show_file_info(file_text_list.join, opts)
+  show_text_count({ line_count: line_counts.sum, word_count: word_counts.sum, bytesize: byte_size_list.sum }, opts)
   puts ' total'
 end
 
-def show_file_info(text, opts)
-  text_info_list = { line_count: text.count("\n"), word_count: text.scan(/\s+/).count, bytesize: text.bytesize }
+def show_text_count(count_table, opts)
   if opts['l']
-    print text_info_list[:line_count].to_s.rjust(8)
+    print count_table[:line_count].to_s.rjust(8)
   else
-    text_info_list.each_value { |info| print info.to_s.rjust(8) }
+    count_table.each_value { |count| print count.to_s.rjust(8) }
   end
 end
 
